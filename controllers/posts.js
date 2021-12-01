@@ -16,26 +16,45 @@ const Posts = {
     const db = new sqlite(dbPath, {
       verbose: console.log,
     });
+
     let stmt = db.prepare(`
       DROP TABLE IF EXISTS posts
     ;`);
     stmt.run();
+
     stmt = db.prepare(`
       CREATE TABLE IF NOT EXISTS posts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      author TEXT NOT NULL,
-      text TEXT NOT NULL,
-      dt INTEGER NOT NULL,
-      isLiked INTEGER NOT NULL,
-      likeCount INTEGER NOT NULL,
-      commentCount INTEGER NOT NULL
-    );`);
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        dt INTEGER NOT NULL,
+        isLiked INTEGER NOT NULL,
+        likeCount INTEGER NOT NULL,
+        commentCount INTEGER NOT NULL
+      );`);
+    stmt.run();
 
+    stmt = db.prepare(`
+      DROP TABLE IF EXISTS users
+    ;`);
+    stmt.run();
+
+    stmt = db.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        email TEXT NOT NULL,
+        firstName TEXT NOT NULL,
+        lastName TEXT NOT NULL,
+        joinDT INTEGER NOT NULL
+      );`);
     stmt.run();
 
     db.close();
 
-    res.status(200).send('database');
+    return res.status(200).send('database');
   },
 
   /** Fills posts table in database with test data
@@ -49,15 +68,19 @@ const Posts = {
       verbose: console.log,
     });
 
-    const fakeData = fs
-      .readFileSync(path.join(dbDirectory, 'posts/fakeposts.sql'))
+    const fakePosts = fs
+      .readFileSync(path.join(dbDirectory, 'fake_data/posts.sql'))
       .toString();
+    db.exec(fakePosts);
 
-    db.exec(fakeData);
+    const fakeUsers = fs
+      .readFileSync(path.join(dbDirectory, 'fake_data/users.sql'))
+      .toString();
+    db.exec(fakeUsers);
 
     db.close();
 
-    res.status(200).send('database');
+    return res.status(200).send('database');
   },
 
   /** Get all posts from database
@@ -68,12 +91,31 @@ const Posts = {
    */
   async getPosts(req, res) {
     const db = new sqlite(dbPath, {
-      verbose: console.log,
+      // verbose: console.log,
     });
 
     const stmt = db.prepare(`
-      SELECT * FROM posts LIMIT 2;
-    `);
+      SELECT
+        l.id,
+        l.user,
+        l.text,
+        l.dt,
+        l.isLiked,
+        l.likeCount,
+        l.commentCount,
+        r.username,
+        r.firstName,
+        r.lastName
+      FROM
+        posts l
+      INNER JOIN users r
+        ON l.user = r.id
+      ORDER BY
+        l.dt
+        DESC
+      LIMIT
+        150
+      ;`);
     const posts = stmt.all();
     return res.status(200).json(posts);
   },
@@ -84,9 +126,34 @@ const Posts = {
    * @param {object} res
    * @returns {object} Set data from database
    */
-  async newPost(req, res) {
-    const queryResult = await query('set', req.params.id);
-    return res.status(queryResult.status).send(queryResult.data);
+  async addPost(req, res) {
+    const db = new sqlite(dbPath, {
+      // verbose: console.log,
+    });
+
+    console.log('user ', req.headers);
+
+    const id = Math.ceil(Math.random() * 100);
+
+    const post = {
+      user: id,
+      text: req.body.text,
+      dt: new Date().getTime(),
+      isLiked: 0,
+      likeCount: 0,
+      commentCount: 0,
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO
+        posts (user, text, dt, isLiked, likeCount, commentCount)
+      VALUES
+        ($user, $text, $dt, $isLiked, $likeCount, $commentCount)
+    ;`);
+
+    stmt.run(post);
+
+    return res.status(200).send('Complete');
   },
 
   /** Get a single set from database

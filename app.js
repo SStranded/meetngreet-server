@@ -15,8 +15,8 @@ require('dotenv').config(); // Require the dotenv
 
 // Database configuration
 const dbDirectory = path.join(process.cwd(), 'databases');
-const sessionsDbPath = path.join(dbDirectory, 'sessions');
-const db = new sqlite(path.join(sessionsDbPath, 'sessions.db'), {
+const sessionsDbPath = path.join(dbDirectory, 'database');
+const db = new sqlite(path.join(sessionsDbPath, 'db.db'), {
   // verbose: console.log,
 });
 
@@ -91,6 +91,8 @@ app.use(morgan('dev')); //enable incoming request logging in dev mode
 
 const postRouter = require('./routes/posts.routes.js');
 app.use('/post', postRouter);
+const authRouter = require('./routes/auth.routes.js');
+app.use('/auth', authRouter);
 
 //Define the endpoint
 app.get('/ping', (req, res) => {
